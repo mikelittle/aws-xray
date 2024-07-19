@@ -1,7 +1,7 @@
 {
-    "name": "humanmade/aws-xray",
+	"name": "mikelittle/aws-xray",
     "description": "HM Platform AWS X-Ray Integration",
-    "type": "library",
+    "type": "wordpress-muplugin",
     "license": "GPL-2.0-or-later",
     "authors": [
         {
