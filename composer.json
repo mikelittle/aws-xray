@@ -1,5 +1,5 @@
 {
-	"name": "humanmade/aws-xray",
+    "name": "humanmade/aws-xray",
     "description": "HM Platform AWS X-Ray Integration",
     "type": "wordpress-muplugin",
     "license": "GPL-2.0-or-later",
