@@ -394,6 +394,7 @@ function get_in_progress_trace() : array {
 				'method'    => $_SERVER['REQUEST_METHOD'],
 				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'],
 			],
 		],
 		'in_progress' => true,
@@ -438,13 +439,20 @@ function get_end_trace() : array {
 
 	if ( $hm_platform_xray_start_rusage ) {
 		$end_usage = getrusage();
-		$user_seconds = ( $end_usage['ru_utime.tv_usec'] - $hm_platform_xray_start_rusage['ru_utime.tv_usec'] ) / 1000000;
-		$system_seconds = ( $end_usage['ru_stime.tv_usec'] - $hm_platform_xray_start_rusage['ru_stime.tv_usec'] ) / 1000000;
+
+		// ru_utime/ru_stime are "timevalue" structs, consisting of an int seconds (tv_sec) and an int microseconds (tv_usec).
+		// We need to assemble these into floats. We perform the diff maths *before* division to avoid rounding errors.
+		$user_sec = $end_usage['ru_utime.tv_sec'] - $hm_platform_xray_start_rusage['ru_utime.tv_sec'];
+		$user_usec = $end_usage['ru_utime.tv_usec'] - $hm_platform_xray_start_rusage['ru_utime.tv_usec'];
+		$user_total = $user_sec + ( $user_usec / 1000000 );
+		$sys_sec = $end_usage['ru_stime.tv_sec'] - $hm_platform_xray_start_rusage['ru_stime.tv_sec'];
+		$sys_usec = $end_usage['ru_stime.tv_usec'] - $hm_platform_xray_start_rusage['ru_stime.tv_usec'];
+		$sys_total = $sys_sec + ( $sys_usec / 1000000 );
 
 		$stats['cpu'] = [
-			'user_time' => $user_seconds,
-			'sys_time' => $system_seconds,
-			'total_time' => $user_seconds + $system_seconds,
+			'user_time' => $user_total,
+			'sys_time' => $sys_total,
+			'total_time' => $user_total + $sys_total,
 		];
 	}
 
@@ -464,6 +472,7 @@ function get_end_trace() : array {
 				'method'    => $_SERVER['REQUEST_METHOD'],
 				'url'       => ( empty( $_SERVER['HTTPS'] ) ? 'http' : 'https' ) . '://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'],
 				'client_ip' => $_SERVER['REMOTE_ADDR'],
+				'user_agent' => $_SERVER['HTTP_USER_AGENT'],
 			],
 			'response' => [
 				'status' => http_response_code(),
@@ -920,8 +929,12 @@ function get_object_cache_stats() : array {
 			'remote_calls' => $stats->redis_total_calls,
 			// Expected to be in seconds, redis_total_time is in microseconds.
 			'time' => $stats->redis_total_time / 1000000,
-			'hits' => 0,
-			'misses' => 0,
+			'hits' => $stats->request_cache_hits,
+			'misses' => $stats->request_cache_misses,
+			'lru_cache_misses' => $stats->lru_cache_misses,
+			'lru_cache_hits' => $stats->lru_cache_hits,
+			'lru_cache_items' => $stats->lru_cache_items,
+			'lru_cache_size' => $stats->lru_cache_size,
 		];
 		return $stats;
 	}
